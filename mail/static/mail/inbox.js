@@ -11,32 +11,11 @@ document.addEventListener('DOMContentLoaded', function() {
   load_mailbox('inbox');
 });
 
-function submit_email(event) {
-  event.preventDefault()
-
-  // Post email to API route
-  fetch('/emails' , {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      recipients: document.querySelector('#compose-recipients').value,
-      subject: document.querySelector('#compose-subject').value,
-      body: document.querySelector('#compose-body').value
-    })
-  })
-  .then(response => response.json())
-  .then(result => {
-    console.log(result)
-    load_mailbox('sent')
-  })
-}
-
 function compose_email() {
 
   // Show compose view and hide other views
   document.querySelector('#emails-view').style.display = 'none';
+  document.querySelector('#view-email').style.display = 'none';
   document.querySelector('#compose-view').style.display = 'block';
 
   // Clear out composition fields
@@ -50,47 +29,74 @@ function load_mailbox(mailbox) {
   // Show the mailbox and hide other views
   document.querySelector('#emails-view').style.display = 'block';
   document.querySelector('#compose-view').style.display = 'none';
+  document.querySelector('#view-email').style.display = 'none';
 
   // Show the mailbox name
   document.querySelector('#emails-view').innerHTML = `<h3>${mailbox.charAt(0).toUpperCase() + mailbox.slice(1)}</h3>`;
 
   const emailsView = document.getElementById('emails-view');
-  const emailsContainer = document.createElement('ul')
-  emailsContainer.className = 'list-group list-group-flush';
-  emailsView.appendChild(emailsContainer)
+  emailsView.className = 'container';
 
   fetch(`/emails/${mailbox}`)
-        .then(response => response.json())
-        .then(emails => {
-            emails.forEach(email => {
-                const div = document.createElement('div');
-                div.className = 'email row';
-                if (email.subject) {
-                  div.innerHTML = `
-                  <div class="col-3">
-                    ${email.sender}
-                  </div>  
-                  <div class="col-6">
-                    ${email.subject}
-                  </div>
-                  <div class="col-3">
-                    ${email.timestamp}
-                  </div> 
-                `;
-                } else {
-                  div.innerHTML = `
-                  <div class="col-3">
-                    ${email.sender}
-                  </div>  
-                  <div class="col-6">
-                    (no subject)
-                  </div>
-                  <div class="col-3">
-                    ${email.timestamp}
-                  </div> 
-                `;
-                }
-                emailsView.appendChild(div);
-            });
-        })
+  .then(response => response.json())
+  .then(emails => {
+    emails.forEach(email => {
+      const div = document.createElement('div');
+      if (email.read == false) {
+        div.className = 'email email-unread row'
+      } else {
+        div.className = 'email email-read row';
+      }
+        div.addEventListener('click', () => view_email(email.id))
+        div.innerHTML = `
+        <div class="col-3">
+          ${email.sender}
+        </div>  
+        <div class="col-6">
+          ${email.subject ? email.subject : '(no subject)'}
+        </div>
+        <div class="col-3">
+          ${email.timestamp}
+        </div> 
+      `;
+      emailsView.appendChild(div);
+    });
+  })
+}
+
+function submit_email(event) {
+  event.preventDefault()
+
+  // Post email to API route
+  fetch('/emails' , {
+    method: 'POST',
+    body: JSON.stringify({
+      recipients: document.querySelector('#compose-recipients').value,
+      subject: document.querySelector('#compose-subject').value,
+      body: document.querySelector('#compose-body').value
+    })
+  })
+  .then(response => response.json())
+  .then(result => {
+    console.log(result)
+    load_mailbox('sent')
+  })
+}
+
+view_email = (email_id) => {
+  fetch(`/emails/${email_id}`)
+  .then(response => response.json())
+  .then(email => {
+    const viewEmail = document.querySelector('#view-email');
+    viewEmail.innerHTML = `
+      <h3>${email.subject}</h3>
+      <p><strong>From:</strong> ${email.sender}</p>
+      <p><strong>To:</strong> ${email.recipients.join(', ')}</p>
+      <p><strong>Timestamp:</strong> ${email.timestamp}</p>
+      <p>${email.body}</p>
+    `;
+    document.querySelector('#emails-view').style.display = 'none';
+    document.querySelector('#compose-view').style.display = 'none';
+    viewEmail.style.display = 'block';
+  });
 }
